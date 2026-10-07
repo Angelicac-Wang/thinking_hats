@@ -1,8 +1,3 @@
-import dotenv from 'dotenv';
-import { GoogleGenAI } from '@google/genai';
-
-dotenv.config();
-
 const HAT_PROMPTS: Record<string, string> = {
   white: `你是愛德華·狄波諾「六頂思考帽」的【白帽（White Hat - 客觀數據與事實盤點）】。
 【發言規範】：
@@ -56,22 +51,20 @@ export type HatChatBody = {
   intensity?: string;
 };
 
-function getClient() {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return null;
-  return new GoogleGenAI({
-    apiKey,
-    httpOptions: {
-      headers: {
-        'User-Agent': 'aistudio-build',
-      },
-    },
-  });
+async function readApiKey(): Promise<string | undefined> {
+  if (process.env.GEMINI_API_KEY) return process.env.GEMINI_API_KEY;
+  try {
+    const dotenv = await import('dotenv');
+    dotenv.config();
+  } catch {
+    // Production injects GEMINI_API_KEY directly. A missing dotenv must not crash the function.
+  }
+  return process.env.GEMINI_API_KEY;
 }
 
 async function generateWithModelFallback(prompt: string, maxTokens = 350): Promise<string> {
-  const ai = getClient();
-  if (!ai) {
+  const apiKey = await readApiKey();
+  if (!apiKey) {
     throw new Error('NO_AI_INSTANCE');
   }
 
@@ -85,22 +78,39 @@ async function generateWithModelFallback(prompt: string, maxTokens = 350): Promi
   for (const model of modelsToTry) {
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const response = await ai.models.generateContent({
-          model,
-          contents: prompt,
-          config: {
-            maxOutputTokens: maxTokens,
-            temperature: 0.65,
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-goog-api-key': apiKey,
+            },
+            body: JSON.stringify({
+              contents: [{ role: 'user', parts: [{ text: prompt }] }],
+              generationConfig: {
+                maxOutputTokens: maxTokens,
+                temperature: 0.65,
+              },
+            }),
           },
-        });
-        if (response.text && response.text.trim()) {
-          return response.text.trim();
+        );
+        const data = await response.json().catch(() => null);
+        if (!response.ok) {
+          const message = data?.error?.message || `${response.status} ${response.statusText}`;
+          throw new Error(message);
         }
+        const text = data?.candidates?.[0]?.content?.parts
+          ?.map((part: { text?: string }) => part.text || '')
+          .join('')
+          .trim();
+        if (text) return text;
+        throw new Error('EMPTY_MODEL_RESPONSE');
       } catch (err: unknown) {
         lastError = err;
         const message = err instanceof Error ? err.message : String(err);
         console.warn(`Model ${model} attempt ${attempt + 1} failed:`, message);
-        if (message.includes('429') || message.includes('404')) {
+        if (message.includes('429') || message.includes('404') || message.includes('not found')) {
           break;
         }
         await new Promise((resolve) => setTimeout(resolve, 400));
