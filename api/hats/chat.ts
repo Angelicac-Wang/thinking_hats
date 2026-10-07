@@ -1,17 +1,29 @@
 import { replyAsHat, type HatChatBody } from '../../lib/geminiHats';
 
-export const config = {
-  maxDuration: 30,
-};
+export const maxDuration = 60;
 
-export default async function handler(req: { method?: string; body?: HatChatBody }, res: {
-  status: (code: number) => { json: (body: unknown) => void };
-}) {
-  if (req.method !== 'POST') {
-    res.status(405).json({ error: 'Method not allowed' });
-    return;
+async function handle(request: Request): Promise<Response> {
+  if (request.method !== 'POST') {
+    return Response.json({ error: 'Method not allowed' }, { status: 405 });
   }
 
-  const result = await replyAsHat(req.body || {});
-  res.status(result.status).json(result.payload);
+  let body: HatChatBody = {};
+  try {
+    body = (await request.json()) as HatChatBody;
+  } catch {
+    body = {};
+  }
+
+  const result = await replyAsHat(body);
+  return Response.json(result.payload, { status: result.status });
 }
+
+export function POST(request: Request) {
+  return handle(request);
+}
+
+export default {
+  fetch(request: Request) {
+    return handle(request);
+  },
+};

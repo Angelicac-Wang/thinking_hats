@@ -167,10 +167,15 @@ ${customPrompt ? `【特殊指示】：${customPrompt}` : ''}
     const message = error instanceof Error ? error.message : String(error);
     console.error('All models failed for hat chat:', message);
     if (message === 'NO_AI_INSTANCE') {
-      console.error('GEMINI_API_KEY is missing in this environment');
+      return {
+        status: 500,
+        payload: { error: '伺服器沒有讀到 GEMINI_API_KEY。請確認 Vercel 的 Production 環境變數已設定，並重新部署。' },
+      };
     }
-    const dynamicFallback = `針對「${topic}」，從【${speakerHat.toUpperCase()}】視角來看，我們需要直接檢視核心假設。建議針對目前提出的重點，確認後續具體的執行數據與步驟。`;
-    return { status: 200, payload: { text: dynamicFallback } };
+    return {
+      status: 502,
+      payload: { error: `Gemini 呼叫失敗：${message}` },
+    };
   }
 }
 

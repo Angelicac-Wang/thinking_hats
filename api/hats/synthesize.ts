@@ -1,18 +1,29 @@
 import { synthesizeReport } from '../../lib/geminiHats';
 
-export const config = {
-  maxDuration: 60,
-};
+export const maxDuration = 60;
 
-export default async function handler(
-  req: { method?: string; body?: { topic?: string; history?: Array<{ speakerName?: string; hat?: string; text?: string }> } },
-  res: { status: (code: number) => { json: (body: unknown) => void } },
-) {
-  if (req.method !== 'POST') {
-    res.status(405).json({ error: 'Method not allowed' });
-    return;
+async function handle(request: Request): Promise<Response> {
+  if (request.method !== 'POST') {
+    return Response.json({ error: 'Method not allowed' }, { status: 405 });
   }
 
-  const result = await synthesizeReport(req.body || {});
-  res.status(result.status).json(result.payload);
+  let body: { topic?: string; history?: Array<{ speakerName?: string; hat?: string; text?: string }> } = {};
+  try {
+    body = await request.json();
+  } catch {
+    body = {};
+  }
+
+  const result = await synthesizeReport(body);
+  return Response.json(result.payload, { status: result.status });
 }
+
+export function POST(request: Request) {
+  return handle(request);
+}
+
+export default {
+  fetch(request: Request) {
+    return handle(request);
+  },
+};

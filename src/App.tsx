@@ -129,7 +129,10 @@ export default function App() {
       let newText = '';
       if (response.ok) {
         const data = await response.json();
-        newText = data.text || '';
+        newText = data.text || data.error || '';
+      } else {
+        const raw = await response.text();
+        newText = `發言服務沒有成功（HTTP ${response.status}）。${raw.slice(0, 240)}`;
       }
 
       if (!newText) {
