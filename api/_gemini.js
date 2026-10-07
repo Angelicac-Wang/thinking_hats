@@ -215,8 +215,4 @@ function readBody(req) {
   return {};
 }
 
-function send(res, status, payload) {
-  res.status(status).json(payload);
-}
-
-module.exports = { replyAsHat, synthesizeReport, readBody, send };
+export { replyAsHat, synthesizeReport, readBody };
