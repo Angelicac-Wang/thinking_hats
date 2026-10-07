@@ -1,0 +1,7 @@
+{
+  "name": "六頂思考帽圓桌會議 (Six Thinking Hats Roundtable)",
+  "description": "與 5 位 AI 思考帽夥伴同桌進行深度側向思維討論與決策模擬",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
